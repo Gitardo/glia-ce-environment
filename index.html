@@ -51,7 +51,6 @@
                 <h1 class="text-2xl font-bold">Glia CE Environment</h1>
             </div>
             <div id="auth-controls">
-                 <!-- **FIX**: Removed the onclick attribute from the HTML -->
                 <button id="login-button" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg" disabled>
                     Loading SDK...
                 </button>
@@ -94,7 +93,7 @@
             document.querySelector('#message-box h3').textContent = title;
             messageContent.textContent = content;
         }
-
+        
         /**
          * Kicks off the login process.
          */
@@ -131,7 +130,6 @@
                         }
                         showMessage('Glia Authentication Success!', 'Successfully authenticated the visitor with Glia.');
                         loginButton.textContent = 'Authenticated'; // Final success state
-                        // The button remains disabled as the user is now authenticated.
                     });
                 });
 
@@ -149,11 +147,20 @@
         function initializeGliaSDK() {
             if (typeof sm !== 'undefined' && sm.ready) {
                 sm.ready(function() {
-                    console.log('Glia SDK is ready.');
-                    loginButton.disabled = false;
-                    loginButton.textContent = 'Log In';
-                    // **FIX**: Attach the event listener here, ONLY after SDK is ready.
-                    loginButton.addEventListener('click', handleLogin);
+                    // --- INTENSIVE DEBUGGING ---
+                    console.log('Glia SDK is ready. Inspecting `sm` object:');
+                    console.dir(sm); // This gives a detailed, expandable view of the object.
+
+                    // Now, explicitly check for the function we need.
+                    if (typeof sm.getVisitorContext === 'function') {
+                        console.log('SUCCESS: sm.getVisitorContext() function was found.');
+                        loginButton.disabled = false;
+                        loginButton.textContent = 'Log In';
+                        loginButton.addEventListener('click', handleLogin);
+                    } else {
+                        console.error('FAILURE: sm.getVisitorContext() is STILL not a function, even inside sm.ready().');
+                        showMessage('SDK Initialization Error', 'The Glia SDK did not initialize correctly. getVisitorContext is missing. See browser console for details.');
+                    }
                 });
             } else {
                 setTimeout(initializeGliaSDK, 200);
