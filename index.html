@@ -63,7 +63,7 @@
         <div id="status-container" class="text-center">
             <h2 class="text-4xl font-bold mb-4">Welcome to the Testing Site</h2>
             <p class="text-lg text-gray-300 max-w-2xl mx-auto mb-8">
-                This environment is running diagnostics on the Glia SDK. Please check the browser console for logs.
+                This environment is for testing Direct ID Token Authentication. The "Log In" button will enable once the Glia SDK is fully loaded.
             </p>
              <div id="message-box" class="bg-gray-800 p-6 rounded-lg max-w-2xl mx-auto my-6 hidden">
                 <h3 class="text-xl font-semibold mb-2 text-glia-green">Status</h3>
@@ -78,7 +78,7 @@
     </footer>
 
     <script>
-        // --- AUTHENTICATION LOGIC (FINAL DIAGNOSTIC) ---
+        // --- AUTHENTICATION LOGIC (Using correct `updateInformation` function) ---
 
         const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; 
         const loginButton = document.getElementById('login-button');
@@ -108,22 +108,18 @@
 
                 showMessage('JWT Received!', `Successfully fetched JWT. Authenticating with Glia SDK...`);
                 
-                sm.getVisitorContext(function(err, visitorContext) {
+                // **THE FIX**: Using the correct function from the official docs.
+                sm.updateInformation({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
                     if (err) {
-                        showMessage('Glia SDK Error', `Error getting visitor context: ${JSON.stringify(err, null, 2)}`);
+                        showMessage('Glia Authentication Failed', `Error during authentication: ${JSON.stringify(err, null, 2)}`);
+                        loginButton.textContent = 'Log In'; 
+                        loginButton.disabled = false;
                         return;
                     }
-                    visitorContext.update({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
-                        if (err) {
-                            showMessage('Glia Authentication Failed', `Error during authentication: ${JSON.stringify(err, null, 2)}`);
-                            loginButton.textContent = 'Log In'; 
-                            loginButton.disabled = false;
-                            return;
-                        }
-                        showMessage('Glia Authentication Success!', 'Successfully authenticated the visitor with Glia.');
-                        loginButton.textContent = 'Authenticated';
-                    });
+                    showMessage('Glia Authentication Success!', 'Successfully authenticated the visitor with Glia.');
+                    loginButton.textContent = 'Authenticated';
                 });
+
             } catch (error) {
                 console.error('Login failed:', error);
                 showMessage('Login Process Failed', error.message);
@@ -133,23 +129,22 @@
         }
 
         /**
-         * **NEW DIAGNOSTIC POLLING FUNCTION**
-         * This function repeatedly checks for `sm.getVisitorContext` to see if it ever becomes available.
+         * Diagnostic polling function to wait for the correct API method.
          */
         function waitForGliaApi() {
             let attempts = 0;
-            const maxAttempts = 25; // Try for 5 seconds (25 * 200ms)
+            const maxAttempts = 25; // Try for 5 seconds
 
-            console.log('Starting diagnostic poll for `sm.getVisitorContext`...');
+            console.log('Starting diagnostic poll for `sm.updateInformation`...');
 
             const intervalId = setInterval(function() {
                 attempts++;
                 
-                // Check if the full sm object with the API is available
-                if (typeof sm !== 'undefined' && typeof sm.getVisitorContext === 'function') {
+                // **THE FIX**: Checking for the correct function name.
+                if (typeof sm !== 'undefined' && typeof sm.updateInformation === 'function') {
                     // SUCCESS!
                     clearInterval(intervalId);
-                    console.log(`SUCCESS: Found 'sm.getVisitorContext' after ${attempts * 200}ms.`);
+                    console.log(`SUCCESS: Found 'sm.updateInformation' after ${attempts * 200}ms.`);
                     showMessage('SDK Ready', `The Glia SDK Visitor API is now available.`);
                     loginButton.disabled = false;
                     loginButton.textContent = 'Log In';
@@ -157,15 +152,12 @@
                     return;
                 }
 
-                // Check if we should give up
                 if (attempts >= maxAttempts) {
                     clearInterval(intervalId);
-                    console.error(`FAILURE: Timed out after ${maxAttempts * 200}ms. 'sm.getVisitorContext' never became a function.`);
-                    console.log('Inspecting the final state of the `sm` object:');
-                    console.dir(sm);
-                    showMessage('SDK Initialization Error', `'sm.getVisitorContext' function not found. The API may be disabled for this site. See console for details.`);
+                    console.error(`FAILURE: Timed out after ${maxAttempts * 200}ms. 'sm.updateInformation' never became a function.`);
+                    showMessage('SDK Initialization Error', `'sm.updateInformation' function not found. The API may be disabled or you may need to contact Glia support.`);
                 } else {
-                    console.log(`Attempt #${attempts}: 'sm.getVisitorContext' is still not a function.`);
+                    console.log(`Attempt #${attempts}: 'sm.updateInformation' is still not a function.`);
                 }
 
             }, 200);
