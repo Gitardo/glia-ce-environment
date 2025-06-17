@@ -4,14 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glia CE Environment</title>
-    <!-- Tailwind CSS for professional styling -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuration for Tailwind to remove the warning -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'glia-purple': '#7a52f0',
+                        'glia-green': '#00ffab',
+                    }
+                }
+            }
+        }
+    </script>
     
-    <!-- **NEW** Glia Configuration Snippet -->
-    <!-- This MUST come BEFORE the main salemove_integration.js script -->
+    <!-- Glia Configuration Snippet -->
     <script>
         window.sm_config = {
-            site_id: '1c2a0a57-fa1c-4ae8-abd5-1e41fe6c7991' // <-- IMPORTANT: REPLACE THIS with your actual Site ID
+            site_id: '1c2a0a57-fa1c-4ae8-abd5-1e41fe6c7991' 
         };
     </script>
 
@@ -24,12 +36,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #1a1a1a; }
-        .bg-glia-purple { background-color: #7a52f0; }
-        .bg-glia-green { background-color: #00ffab; }
-        .text-glia-green { color: #00ffab; }
-        .text-glia-purple { color: #7a52f0; }
-        .border-glia-green { border-color: #00ffab; }
-        .border-glia-purple { border-color: #7a52f0; }
         .btn { transition: all 0.2s ease-in-out; }
         .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
         .btn:disabled { cursor: not-allowed; opacity: 0.5; }
@@ -45,7 +51,8 @@
                 <h1 class="text-2xl font-bold">Glia CE Environment</h1>
             </div>
             <div id="auth-controls">
-                <button id="login-button" onclick="handleLogin()" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg" disabled>
+                 <!-- **FIX**: Removed the onclick attribute from the HTML -->
+                <button id="login-button" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg" disabled>
                     Loading SDK...
                 </button>
             </div>
@@ -110,7 +117,6 @@
 
                 showMessage('JWT Received!', `Successfully fetched JWT. Authenticating with Glia SDK...`);
                 
-                // At this point, sm.ready has already fired, so sm object is safe to use.
                 sm.getVisitorContext(function(err, visitorContext) {
                     if (err) {
                         showMessage('Glia SDK Error', `Error getting visitor context: ${JSON.stringify(err, null, 2)}`);
@@ -141,17 +147,15 @@
          * This function checks for the Glia SDK and enables the login button when ready.
          */
         function initializeGliaSDK() {
-            // Check if the sm object is available.
             if (typeof sm !== 'undefined' && sm.ready) {
-                // Wait for the SDK to be fully initialized.
                 sm.ready(function() {
                     console.log('Glia SDK is ready.');
                     loginButton.disabled = false;
                     loginButton.textContent = 'Log In';
+                    // **FIX**: Attach the event listener here, ONLY after SDK is ready.
+                    loginButton.addEventListener('click', handleLogin);
                 });
             } else {
-                // If sm is not defined yet, wait and try again.
-                // This is a fallback for very slow loading scenarios.
                 setTimeout(initializeGliaSDK, 200);
             }
         }
