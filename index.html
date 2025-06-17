@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glia CE Environment</title>
+    <!-- Tailwind CSS for professional styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Glia JavaScript SDK (Production) -->
+    <script async src="https://api.glia.com/salemove_integration.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #1a1a1a; }
+        .bg-glia-purple { background-color: #7a52f0; }
+        .bg-glia-green { background-color: #00ffab; }
+        .text-glia-green { color: #00ffab; }
+        .text-glia-purple { color: #7a52f0; }
+        .border-glia-green { border-color: #00ffab; }
+        .border-glia-purple { border-color: #7a52f0; }
+        .btn { transition: all 0.2s ease-in-out; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
+    </style>
+</head>
+<body class="text-white">
+
+    <!-- Header Section -->
+    <header class="p-4 md:p-6 shadow-lg bg-gray-900/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <svg class="w-8 h-8 text-glia-green" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <h1 class="text-2xl font-bold">Glia CE Environment</h1>
+            </div>
+            <div id="auth-controls">
+                <button onclick="handleLogin()" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg">Log In</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 md:p-8 mt-10">
+        <div id="status-container" class="text-center">
+            <h2 class="text-4xl font-bold mb-4">Welcome to the Testing Site</h2>
+            <p class="text-lg text-gray-300 max-w-2xl mx-auto mb-8">
+                This environment is for testing Direct ID Token Authentication. Press "Log In" to fetch a JWT from the backend and authenticate with the Glia SDK.
+            </p>
+             <div id="message-box" class="bg-gray-800 p-6 rounded-lg max-w-2xl mx-auto my-6 hidden">
+                <h3 class="text-xl font-semibold mb-2 text-glia-green">Status</h3>
+                <pre class="text-left text-sm text-white bg-gray-900 p-4 rounded-md overflow-x-auto"><code id="message-content"></code></pre>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center p-6 mt-20 text-gray-500">
+        <p>&copy; 2025 - For Testing Purposes Only</p>
+    </footer>
+
+    <script>
+        // --- AUTHENTICATION LOGIC (Updated for Direct ID Token Flow) ---
+
+        // The URL of your new serverless function that generates the Glia JWT
+        const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; // Example for Vercel/Netlify
+
+        const messageBox = document.getElementById('message-box');
+        const messageContent = document.getElementById('message-content');
+
+        /**
+         * Shows a message in the UI status box.
+         */
+        function showMessage(title, content) {
+            messageBox.classList.remove('hidden');
+            document.querySelector('#message-box h3').textContent = title;
+            messageContent.textContent = content;
+        }
+
+        /**
+         * Kicks off the login process.
+         * 1. Fetches the JWT from our secure backend endpoint.
+         * 2. Passes the JWT to the Glia SDK.
+         */
+        async function handleLogin() {
+            showMessage('Login Process Started', 'Attempting to fetch JWT from backend...');
+
+            try {
+                // 1. Fetch the token from our serverless function
+                const response = await fetch(TOKEN_GENERATOR_ENDPOINT);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to get token from backend: ${response.status} ${errorText}`);
+                }
+
+                const { token } = await response.json();
+                
+                if (!token) {
+                    throw new Error('Token not found in backend response.');
+                }
+
+                showMessage('JWT Received!', `Successfully fetched JWT.\n\nToken (first 30 chars): ${token.substring(0, 30)}...\n\nNow, authenticating with Glia SDK...`);
+
+                // 2. Authenticate with Glia SDK
+                // Ensure the Glia SDK (salemove_integration.js) is loaded on your page first!
+                if (typeof sm !== 'undefined') {
+                    sm.getVisitorContext(function(err, visitorContext) {
+                        if (err) {
+                           showMessage('Glia SDK Error', `Error getting visitor context: ${JSON.stringify(err, null, 2)}`);
+                           return;
+                        }
+                        visitorContext.update({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
+                            if (err) {
+                                showMessage('Glia Authentication Failed', `Error during authentication: ${JSON.stringify(err, null, 2)}`);
+                                return;
+                            }
+                            showMessage('Glia Authentication Success!', 'Successfully authenticated the visitor with Glia.');
+                        });
+                    });
+                } else {
+                    throw new Error('Glia SDK (`sm`) is not defined. Make sure the script is loaded.');
+                }
+
+            } catch (error) {
+                console.error('Login failed:', error);
+                showMessage('Login Process Failed', error.message);
+            }
+        }
+    </script>
+</body>
+</html>
