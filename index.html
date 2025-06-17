@@ -6,8 +6,18 @@
     <title>Glia CE Environment</title>
     <!-- Tailwind CSS for professional styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- **NEW** Glia Configuration Snippet -->
+    <!-- This MUST come BEFORE the main salemove_integration.js script -->
+    <script>
+        window.sm_config = {
+            site_id: '1c2a0a57-fa1c-4ae8-abd5-1e41fe6c7991'
+        };
+    </script>
+
     <!-- Glia JavaScript SDK (Production) -->
     <script async src="https://api.glia.com/salemove_integration.js"></script>
+    
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -107,7 +117,7 @@
                     throw new Error('Glia SDK (`sm`) is not defined. Make sure the script is loaded and not blocked.');
                 }
 
-                // **FIX:** Wait for the SDK to be fully initialized
+                // Wait for the SDK to be fully initialized
                 sm.ready(function() {
                     sm.getVisitorContext(function(err, visitorContext) {
                         if (err) {
