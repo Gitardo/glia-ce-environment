@@ -11,7 +11,7 @@
     <!-- This MUST come BEFORE the main salemove_integration.js script -->
     <script>
         window.sm_config = {
-            site_id: '1c2a0a57-fa1c-4ae8-abd5-1e41fe6c7991'
+            site_id: '1c2a0a57-fa1c-4ae8-abd5-1e41fe6c7991' // <-- IMPORTANT: REPLACE THIS with your actual Site ID
         };
     </script>
 
@@ -31,7 +31,8 @@
         .border-glia-green { border-color: #00ffab; }
         .border-glia-purple { border-color: #7a52f0; }
         .btn { transition: all 0.2s ease-in-out; }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
+        .btn:disabled { cursor: not-allowed; opacity: 0.5; }
     </style>
 </head>
 <body class="text-white">
@@ -44,7 +45,9 @@
                 <h1 class="text-2xl font-bold">Glia CE Environment</h1>
             </div>
             <div id="auth-controls">
-                <button onclick="handleLogin()" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg">Log In</button>
+                <button id="login-button" onclick="handleLogin()" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg" disabled>
+                    Loading SDK...
+                </button>
             </div>
         </div>
     </header>
@@ -54,7 +57,7 @@
         <div id="status-container" class="text-center">
             <h2 class="text-4xl font-bold mb-4">Welcome to the Testing Site</h2>
             <p class="text-lg text-gray-300 max-w-2xl mx-auto mb-8">
-                This environment is for testing Direct ID Token Authentication. Press "Log In" to fetch a JWT from the backend and authenticate with the Glia SDK.
+                This environment is for testing Direct ID Token Authentication. The "Log In" button will enable once the Glia SDK is fully loaded.
             </p>
              <div id="message-box" class="bg-gray-800 p-6 rounded-lg max-w-2xl mx-auto my-6 hidden">
                 <h3 class="text-xl font-semibold mb-2 text-glia-green">Status</h3>
@@ -69,11 +72,10 @@
     </footer>
 
     <script>
-        // --- AUTHENTICATION LOGIC (Updated for Direct ID Token Flow) ---
+        // --- AUTHENTICATION LOGIC ---
 
-        // The URL of your new serverless function that generates the Glia JWT
         const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; 
-
+        const loginButton = document.getElementById('login-button');
         const messageBox = document.getElementById('message-box');
         const messageContent = document.getElementById('message-content');
 
@@ -88,57 +90,75 @@
 
         /**
          * Kicks off the login process.
-         * 1. Fetches the JWT from our secure backend endpoint.
-         * 2. Passes the JWT to the Glia SDK.
          */
         async function handleLogin() {
             showMessage('Login Process Started', 'Attempting to fetch JWT from backend...');
+            loginButton.disabled = true; // Disable button during process
+            loginButton.textContent = 'Logging In...';
 
             try {
-                // 1. Fetch the token from our serverless function
                 const response = await fetch(TOKEN_GENERATOR_ENDPOINT);
-
                 if (!response.ok) {
                     const errorText = await response.text();
                     throw new Error(`Failed to get token from backend: ${response.status} ${errorText}`);
                 }
 
                 const { token } = await response.json();
-                
                 if (!token) {
                     throw new Error('Token not found in backend response.');
                 }
 
-                showMessage('JWT Received!', `Successfully fetched JWT.\n\nToken (first 30 chars): ${token.substring(0, 30)}...\n\nNow, authenticating with Glia SDK...`);
-
-                // 2. Authenticate with Glia SDK
-                // Check if the Glia SDK is present on the page
-                if (typeof sm === 'undefined') {
-                    throw new Error('Glia SDK (`sm`) is not defined. Make sure the script is loaded and not blocked.');
-                }
-
-                // Wait for the SDK to be fully initialized
-                sm.ready(function() {
-                    sm.getVisitorContext(function(err, visitorContext) {
+                showMessage('JWT Received!', `Successfully fetched JWT. Authenticating with Glia SDK...`);
+                
+                // At this point, sm.ready has already fired, so sm object is safe to use.
+                sm.getVisitorContext(function(err, visitorContext) {
+                    if (err) {
+                        showMessage('Glia SDK Error', `Error getting visitor context: ${JSON.stringify(err, null, 2)}`);
+                        return;
+                    }
+                    visitorContext.update({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
                         if (err) {
-                           showMessage('Glia SDK Error', `Error getting visitor context: ${JSON.stringify(err, null, 2)}`);
-                           return;
+                            showMessage('Glia Authentication Failed', `Error during authentication: ${JSON.stringify(err, null, 2)}`);
+                            loginButton.textContent = 'Log In'; // Re-enable button on failure
+                            loginButton.disabled = false;
+                            return;
                         }
-                        visitorContext.update({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
-                            if (err) {
-                                showMessage('Glia Authentication Failed', `Error during authentication: ${JSON.stringify(err, null, 2)}`);
-                                return;
-                            }
-                            showMessage('Glia Authentication Success!', 'Successfully authenticated the visitor with Glia.');
-                        });
+                        showMessage('Glia Authentication Success!', 'Successfully authenticated the visitor with Glia.');
+                        loginButton.textContent = 'Authenticated'; // Final success state
+                        // The button remains disabled as the user is now authenticated.
                     });
                 });
 
             } catch (error) {
                 console.error('Login failed:', error);
                 showMessage('Login Process Failed', error.message);
+                loginButton.textContent = 'Log In'; // Re-enable button on failure
+                loginButton.disabled = false;
             }
         }
+
+        /**
+         * This function checks for the Glia SDK and enables the login button when ready.
+         */
+        function initializeGliaSDK() {
+            // Check if the sm object is available.
+            if (typeof sm !== 'undefined' && sm.ready) {
+                // Wait for the SDK to be fully initialized.
+                sm.ready(function() {
+                    console.log('Glia SDK is ready.');
+                    loginButton.disabled = false;
+                    loginButton.textContent = 'Log In';
+                });
+            } else {
+                // If sm is not defined yet, wait and try again.
+                // This is a fallback for very slow loading scenarios.
+                setTimeout(initializeGliaSDK, 200);
+            }
+        }
+        
+        // Start the process on page load.
+        window.addEventListener('load', initializeGliaSDK);
+
     </script>
 </body>
 </html>
