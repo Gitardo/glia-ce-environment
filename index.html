@@ -62,7 +62,7 @@
         // --- AUTHENTICATION LOGIC (Updated for Direct ID Token Flow) ---
 
         // The URL of your new serverless function that generates the Glia JWT
-        const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; // Example for Vercel/Netlify
+        const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; 
 
         const messageBox = document.getElementById('message-box');
         const messageContent = document.getElementById('message-content');
@@ -102,8 +102,13 @@
                 showMessage('JWT Received!', `Successfully fetched JWT.\n\nToken (first 30 chars): ${token.substring(0, 30)}...\n\nNow, authenticating with Glia SDK...`);
 
                 // 2. Authenticate with Glia SDK
-                // Ensure the Glia SDK (salemove_integration.js) is loaded on your page first!
-                if (typeof sm !== 'undefined') {
+                // Check if the Glia SDK is present on the page
+                if (typeof sm === 'undefined') {
+                    throw new Error('Glia SDK (`sm`) is not defined. Make sure the script is loaded and not blocked.');
+                }
+
+                // **FIX:** Wait for the SDK to be fully initialized
+                sm.ready(function() {
                     sm.getVisitorContext(function(err, visitorContext) {
                         if (err) {
                            showMessage('Glia SDK Error', `Error getting visitor context: ${JSON.stringify(err, null, 2)}`);
@@ -117,9 +122,7 @@
                             showMessage('Glia Authentication Success!', 'Successfully authenticated the visitor with Glia.');
                         });
                     });
-                } else {
-                    throw new Error('Glia SDK (`sm`) is not defined. Make sure the script is loaded.');
-                }
+                });
 
             } catch (error) {
                 console.error('Login failed:', error);
