@@ -78,7 +78,7 @@
     </footer>
 
     <script>
-        // --- AUTHENTICATION LOGIC (Correct `getApi` pattern with `window.onload`) ---
+        // --- AUTHENTICATION LOGIC (Final Diagnostic Version) ---
 
         const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; 
         const loginButton = document.getElementById('login-button');
@@ -99,9 +99,7 @@
             loginButton.textContent = 'Logging In...';
 
             try {
-                if (!gliaApi) {
-                    throw new Error('Glia API object is not available.');
-                }
+                if (!gliaApi) { throw new Error('Glia API object is not available.'); }
 
                 const response = await fetch(TOKEN_GENERATOR_ENDPOINT);
                 if (!response.ok) {
@@ -112,11 +110,15 @@
                 const { token } = await response.json();
                 if (!token) { throw new Error('Token not found in backend response.'); }
 
-                showMessage('JWT Received!', `Successfully fetched JWT. Authenticating with Glia SDK...`);
+                // **NEW DIAGNOSTIC STEP**: Log the full token to the console for inspection.
+                console.log("Generated JWT:", token);
+                showMessage('JWT Received!', `Successfully fetched JWT. Authenticating with Glia SDK... See console for the full token.`);
                 
                 gliaApi.updateInformation({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
+                    // **NEW DIAGNOSTIC STEP**: More aggressive error logging.
                     if (err) {
-                        showMessage('Glia Authentication Failed', `Error during authentication: ${JSON.stringify(err, null, 2)}`);
+                        console.error("Glia updateInformation callback error:", err);
+                        showMessage('Glia Authentication Failed', `Error during authentication. See browser console for detailed error object.`);
                         loginButton.textContent = 'Log In'; 
                         loginButton.disabled = false;
                         return;
@@ -133,13 +135,9 @@
             }
         }
         
-        /**
-         * Polls for the sm object first, then calls getApi.
-         */
         function initializeGlia() {
             let attempts = 0;
-            const maxAttempts = 50; // Try for 10 seconds
-
+            const maxAttempts = 50; 
             console.log('Polling for `sm` object...');
             
             const intervalId = setInterval(function() {
@@ -151,7 +149,7 @@
                     
                     sm.getApi({version: 'v1'}).then(function(api) {
                         console.log('SUCCESS: getApi() promise resolved. API is ready.');
-                        gliaApi = api; // Store the API object globally
+                        gliaApi = api; 
                         loginButton.disabled = false;
                         loginButton.textContent = 'Log In';
                         loginButton.addEventListener('click', handleLogin);
@@ -173,9 +171,7 @@
             }, 200);
         }
 
-        // **THE FIX**: Start the entire process only after the window is fully loaded.
         window.addEventListener('load', initializeGlia);
-
     </script>
 </body>
 </html>
