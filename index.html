@@ -52,7 +52,7 @@
             </div>
             <div id="auth-controls">
                 <button id="login-button" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg" disabled>
-                    Waiting for SDK...
+                    Waiting for API...
                 </button>
             </div>
         </div>
@@ -63,7 +63,7 @@
         <div id="status-container" class="text-center">
             <h2 class="text-4xl font-bold mb-4">Welcome to the Testing Site</h2>
             <p class="text-lg text-gray-300 max-w-2xl mx-auto mb-8">
-                This environment is for testing Direct ID Token Authentication. The "Log In" button will enable once the Glia SDK is fully initialized.
+                This environment is for testing Direct ID Token Authentication. The "Log In" button will enable once the Glia API is fully initialized.
             </p>
              <div id="message-box" class="bg-gray-800 p-6 rounded-lg max-w-2xl mx-auto my-6 hidden">
                 <h3 class="text-xl font-semibold mb-2 text-glia-green">Status</h3>
@@ -78,12 +78,15 @@
     </footer>
 
     <script>
-        // --- AUTHENTICATION LOGIC (Resilient Polling) ---
+        // --- AUTHENTICATION LOGIC (Correct `getApi` pattern) ---
 
         const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; 
         const loginButton = document.getElementById('login-button');
         const messageBox = document.getElementById('message-box');
         const messageContent = document.getElementById('message-content');
+        
+        // **THE FIX**: We will store the full API object here once it's loaded.
+        let gliaApi = null;
 
         function showMessage(title, content) {
             messageBox.classList.remove('hidden');
@@ -97,6 +100,11 @@
             loginButton.textContent = 'Logging In...';
 
             try {
+                // This check is now almost redundant, but good for safety.
+                if (!gliaApi) {
+                    throw new Error('Glia API object is not available.');
+                }
+
                 const response = await fetch(TOKEN_GENERATOR_ENDPOINT);
                 if (!response.ok) {
                     const errorText = await response.text();
@@ -108,8 +116,8 @@
 
                 showMessage('JWT Received!', `Successfully fetched JWT. Authenticating with Glia SDK...`);
                 
-                // The polling function has already guaranteed this function exists.
-                sm.updateInformation({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
+                // Use the stored gliaApi object to call updateInformation
+                gliaApi.updateInformation({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
                     if (err) {
                         showMessage('Glia Authentication Failed', `Error during authentication: ${JSON.stringify(err, null, 2)}`);
                         loginButton.textContent = 'Log In'; 
@@ -129,39 +137,47 @@
         }
         
         /**
-         * The most robust way to check for the SDK: poll until the specific function we need exists.
+         * Polls for the sm object first, then calls getApi.
          */
-        function pollForGliaApi() {
+        function initializeGlia() {
             let attempts = 0;
-            const maxAttempts = 50; // Try for 10 seconds (50 * 200ms)
+            const maxAttempts = 50; // Try for 10 seconds
 
-            console.log('Starting polling for `sm.updateInformation`...');
-
+            console.log('Polling for `sm` object...');
+            
             const intervalId = setInterval(function() {
                 attempts++;
                 
-                // Check if the sm object and the correct function exist.
-                if (typeof sm !== 'undefined' && typeof sm.updateInformation === 'function') {
-                    // SUCCESS!
+                if (typeof sm !== 'undefined' && typeof sm.getApi === 'function') {
                     clearInterval(intervalId);
-                    console.log(`SUCCESS: Found 'sm.updateInformation' after ${attempts * 200}ms.`);
-                    loginButton.disabled = false;
-                    loginButton.textContent = 'Log In';
-                    loginButton.addEventListener('click', handleLogin);
+                    console.log(`SUCCESS: Found 'sm' object after ${attempts * 200}ms. Now calling getApi...`);
+                    
+                    sm.getApi({version: 'v1'}).then(function(api) {
+                        console.log('SUCCESS: getApi() promise resolved. API is ready.');
+                        gliaApi = api; // Store the API object globally
+                        loginButton.disabled = false;
+                        loginButton.textContent = 'Log In';
+                        loginButton.addEventListener('click', handleLogin);
+                    }).catch(function(err) {
+                        console.error('FAILURE: sm.getApi() promise was rejected.', err);
+                        showMessage('SDK Initialization Error', `The Glia API could not be loaded. See console for details.`);
+                        loginButton.textContent = 'API Error';
+                    });
+                    
                     return;
                 }
 
                 if (attempts >= maxAttempts) {
                     clearInterval(intervalId);
-                    console.error(`FAILURE: Timed out after ${maxAttempts * 200}ms. 'sm.updateInformation' never became a function.`);
-                    showMessage('SDK Initialization Error', `'sm.updateInformation' function could not be found. Please contact Glia support and confirm the Visitor API is enabled for this site.`);
+                    console.error(`FAILURE: Timed out. The 'sm' object never became available.`);
+                    showMessage('SDK Initialization Error', `The Glia SDK did not load correctly.`);
                     loginButton.textContent = 'SDK Error';
                 }
             }, 200);
         }
 
-        // We don't need to wait for window.onload, as the polling will handle the timing.
-        pollForGliaApi();
+        // Start the initialization process
+        initializeGlia();
 
     </script>
 </body>
