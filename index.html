@@ -78,14 +78,13 @@
     </footer>
 
     <script>
-        // --- AUTHENTICATION LOGIC (Correct `getApi` pattern) ---
+        // --- AUTHENTICATION LOGIC (Correct `getApi` pattern with `window.onload`) ---
 
         const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; 
         const loginButton = document.getElementById('login-button');
         const messageBox = document.getElementById('message-box');
         const messageContent = document.getElementById('message-content');
         
-        // **THE FIX**: We will store the full API object here once it's loaded.
         let gliaApi = null;
 
         function showMessage(title, content) {
@@ -100,7 +99,6 @@
             loginButton.textContent = 'Logging In...';
 
             try {
-                // This check is now almost redundant, but good for safety.
                 if (!gliaApi) {
                     throw new Error('Glia API object is not available.');
                 }
@@ -116,7 +114,6 @@
 
                 showMessage('JWT Received!', `Successfully fetched JWT. Authenticating with Glia SDK...`);
                 
-                // Use the stored gliaApi object to call updateInformation
                 gliaApi.updateInformation({ 'authentications': [{ 'token': token, 'type': 'direct_id' }] }, function (err, success) {
                     if (err) {
                         showMessage('Glia Authentication Failed', `Error during authentication: ${JSON.stringify(err, null, 2)}`);
@@ -176,8 +173,8 @@
             }, 200);
         }
 
-        // Start the initialization process
-        initializeGlia();
+        // **THE FIX**: Start the entire process only after the window is fully loaded.
+        window.addEventListener('load', initializeGlia);
 
     </script>
 </body>
