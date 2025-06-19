@@ -22,14 +22,13 @@ export default async function handler(req, res) {
   const userName = 'John Doe';
   const userEmail = 'john.doe@example.com';
   
-  // The JWT payload with the corrected `iss` claim.
   const payload = {
     // Subject (the user's unique ID in your system)
     sub: externalUserId, 
     
-    // **THE FIX**: The Issuer (iss) should be a unique name for your application.
-    // Using the Vercel domain is a good, standard practice.
-    iss: 'https://glia-ce-environment.vercel.app', 
+    // **THE FIX**: Reverting the Issuer (iss) to a simple string, as per Glia's examples.
+    // This identifies your system without being a URL.
+    iss: 'GliaCEEnvironment', 
     
     // Audience (must be 'gl' and your site ID)
     aud: ['gl', siteId],
