@@ -23,20 +23,26 @@ export default async function handler(req, res) {
   const userEmail = 'john.doe@example.com';
   
   const payload = {
-    // Standard JWT claims
+    // Subject (the user's unique ID in your system)
     sub: externalUserId, 
-    iss: apiKeyId,
+    
+    // **THE CHANGE**: Removing the `iss` (Issuer) claim for this test.
+    
+    // Audience (must be 'gl' and your site ID)
     aud: ['gl', siteId],
+    
+    // JWT ID (a unique ID for this specific token)
     jti: uuidv4(),
+    
+    // Issued At (current time in seconds)
     iat: Math.floor(Date.now() / 1000),
+    
+    // Expiration Time (e.g., 5 minutes from now)
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
 
     // Standard user attributes
     name: userName,
     email: userEmail,
-
-    // **THE CHANGE**: Removing the `custom_attributes` object for this test
-    // to create the simplest possible valid payload.
   };
 
   try {
