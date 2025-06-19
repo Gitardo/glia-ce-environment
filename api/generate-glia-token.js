@@ -26,9 +26,8 @@ export default async function handler(req, res) {
     // Subject (the user's unique ID in your system)
     sub: externalUserId, 
     
-    // **THE FIX**: Reverting the Issuer (iss) to a simple string, as per Glia's examples.
-    // This identifies your system without being a URL.
-    iss: 'GliaCEEnvironment', 
+    // **CHANGE 1**: Re-instating the `iss` (Issuer) claim and setting it to the API Key ID.
+    iss: apiKeyId,
     
     // Audience (must be 'gl' and your site ID)
     aud: ['gl', siteId],
@@ -42,9 +41,12 @@ export default async function handler(req, res) {
     // Expiration Time (e.g., 5 minutes from now)
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
 
-    // Custom claims for user information
-    name: userName,
-    email: userEmail,
+    // **CHANGE 2**: Nesting custom attributes inside a `custom_attributes` object.
+    custom_attributes: {
+      name: userName,
+      email: userEmail,
+      // You can add other custom attributes here as well.
+    }
   };
 
   try {
