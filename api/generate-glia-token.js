@@ -27,8 +27,9 @@ export default async function handler(req, res) {
     // Subject (the user's unique ID in your system)
     sub: externalUserId, 
     
-    // **THE FIX**: The Issuer (iss) must be your API Key ID.
-    iss: apiKeyId, 
+    // **THE FIX**: The Issuer (iss) should be a unique name for your application.
+    // Using the Vercel domain is a good, standard practice.
+    iss: 'https://glia-ce-environment.vercel.app', 
     
     // Audience (must be 'gl' and your site ID)
     aud: ['gl', siteId],
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
     // Sign the token with your private key using the RS256 algorithm.
     const signedToken = jwt.sign(payload, privateKey, {
       algorithm: 'RS256',
-      // The `kid` (Key ID) in the header must also be your Glia API Key ID.
+      // The `kid` (Key ID) in the header is what Glia uses to find your public key.
       header: {
         kid: apiKeyId,
       },
