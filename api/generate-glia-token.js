@@ -22,14 +22,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server configuration error.' });
   }
 
-  // **THE FIX**: Get the visitor ID from the incoming request body.
+  // Get the visitor ID from the incoming request body.
   const { visitorId } = req.body;
 
   if (!visitorId) {
     return res.status(400).json({ error: 'visitorId is required in the request body.' });
   }
 
-  // For Direct ID, the subject should be prefixed with 'visitor:'
+  // **THE FIX**: For Direct ID, the subject should be prefixed with 'visitor:'.
   const subject = `visitor:${visitorId}`;
 
   const payload = {
