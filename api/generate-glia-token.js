@@ -7,70 +7,40 @@ const { v4: uuidv4 } = require('uuid');
 // These are read from your Vercel Environment Variables.
 const privateKey = process.env.GLIA_PRIVATE_KEY;
 const apiKeyId = process.env.GLIA_API_KEY_ID;
-const siteId = process.env.GLIA_SITE_ID;
-const accountId = process.env.GLIA_ACCOUNT_ID; 
 
 export default async function handler(req, res) {
-  // Check that this is a POST request.
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
-
   // Check for server configuration errors.
-  if (!privateKey || !apiKeyId || !siteId || !accountId) {
+  if (!privateKey || !apiKeyId) {
     console.error('Missing required environment variables on Vercel.');
     return res.status(500).json({ error: 'Server configuration error.' });
   }
 
-  // Get the visitor ID from the incoming request body.
-  const { visitorId } = req.body;
-
-  if (!visitorId) {
-    return res.status(400).json({ error: 'visitorId is required in the request body.' });
-  }
-
-  // For Direct ID, the subject should be prefixed with 'visitor:'.
-  const subject = `visitor:${visitorId}`;
-
+  // --- MOCK USER DATA ---
+  // A simple payload is sufficient for this authentication method.
+  const userEmail = 'jane.doe@email.com';
+  const userName = 'Jane Doe';
+  
   const payload = {
-    // Standard JWT claims
-    sub: subject, 
-    
-    // **THE CHANGE**: Using the exact issuer string from the working example.
-    iss: 'Glia Site Visitor Config',
-    
-    aud: ['gl', siteId],
-    jti: uuidv4(),
+    // Basic claims based on your documentation examples
+    email: userEmail,
+    name: userName,
+    sub: userEmail, // Subject can also be the email or a unique ID
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
-    account_id: accountId,
-
-    // Structuring the `roles` array to match the working example.
-    roles: [
-        {
-            type: 'visitor',
-            visitor_id: visitorId 
-        },
-        {
-            type: 'site_visitor',
-            site_id: siteId,
-            engagement_site_ids: [siteId]
-        }
-    ]
   };
 
   try {
-    // Sign the token with your private key using the RS256 algorithm.
+    // **THE FIX**: Signing the token with the correct ES256 algorithm.
     const signedToken = jwt.sign(payload, privateKey, {
-      algorithm: 'RS256',
-      // The `kid` (Key ID) in the header is what Glia uses to find your public key.
+      algorithm: 'ES256',
       header: {
         kid: apiKeyId,
       },
     });
 
-    // Send the correctly signed token back to the front-end.
-    res.status(200).json({ token: signedToken });
+    // Send the token back to the front-end.
+    // The DirectID example script expects the raw token, not a JSON object.
+    res.status(200).send(signedToken);
 
   } catch (error) {
     console.error('Error signing JWT:', error);
