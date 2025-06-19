@@ -35,14 +35,17 @@ export default async function handler(req, res) {
   const payload = {
     // Standard JWT claims
     sub: subject, 
-    iss: apiKeyId,
+    
+    // **THE CHANGE**: Using the exact issuer string from the working example.
+    iss: 'Glia Site Visitor Config',
+    
     aud: ['gl', siteId],
     jti: uuidv4(),
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
     account_id: accountId,
 
-    // Structuring the `roles` array with the dynamic visitorId
+    // Structuring the `roles` array to match the working example.
     roles: [
         {
             type: 'visitor',
@@ -53,9 +56,7 @@ export default async function handler(req, res) {
             site_id: siteId,
             engagement_site_ids: [siteId]
         }
-    ],
-
-    // **THE CHANGE**: Removing optional user attributes to create a minimal token for testing.
+    ]
   };
 
   try {
