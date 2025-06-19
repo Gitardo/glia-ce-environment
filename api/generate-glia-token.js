@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
     account_id: accountId,
 
-    // **THE FIX**: Adding the `engagement_site_ids` array to match the working example.
+    // Structuring the `roles` array with the dynamic visitorId
     roles: [
         {
             type: 'visitor',
@@ -51,9 +51,11 @@ export default async function handler(req, res) {
         {
             type: 'site_visitor',
             site_id: siteId,
-            engagement_site_ids: [siteId] // Usually the same as the site_id.
+            engagement_site_ids: [siteId]
         }
-    ]
+    ],
+
+    // **THE CHANGE**: Removing optional user attributes to create a minimal token for testing.
   };
 
   try {
