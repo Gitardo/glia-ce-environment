@@ -8,38 +8,45 @@ const { v4: uuidv4 } = require('uuid');
 const privateKey = process.env.GLIA_PRIVATE_KEY;
 const apiKeyId = process.env.GLIA_API_KEY_ID;
 const siteId = process.env.GLIA_SITE_ID;
-// **NEW**: You will need to add this to your Vercel Environment Variables.
 const accountId = process.env.GLIA_ACCOUNT_ID; 
 
 export default async function handler(req, res) {
+  // Check that this is a POST request.
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
   // Check for server configuration errors.
   if (!privateKey || !apiKeyId || !siteId || !accountId) {
     console.error('Missing required environment variables on Vercel.');
-    return res.status(500).json({ error: 'Server configuration error. Ensure GLIA_ACCOUNT_ID is set.' });
+    return res.status(500).json({ error: 'Server configuration error.' });
   }
 
-  // --- MOCK USER DATA ---
-  // For this test, we are hardcoding the user's details.
-  const externalUserId = 'user-12345';
-  
+  // **THE FIX**: Get the visitor ID from the incoming request body.
+  const { visitorId } = req.body;
+
+  if (!visitorId) {
+    return res.status(400).json({ error: 'visitorId is required in the request body.' });
+  }
+
+  // For Direct ID, the subject should be prefixed with 'visitor:'
+  const subject = `visitor:${visitorId}`;
+
   const payload = {
     // Standard JWT claims
-    sub: externalUserId, 
-    iss: 'DirectID Authentication', // Using a simple string as the issuer.
+    sub: subject, 
+    iss: apiKeyId,
     aud: ['gl', siteId],
     jti: uuidv4(),
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
-
-    // Account ID, as seen in the working example token.
     account_id: accountId,
 
-    // **THE FIX**: Structuring the `roles` array as an array of objects.
-    // We are creating a simple "visitor" role for the authenticated user.
+    // Structuring the `roles` array with the dynamic visitorId
     roles: [
         {
             type: 'visitor',
-            visitor_id: externalUserId 
+            visitor_id: visitorId 
         },
         {
             type: 'site_visitor',
