@@ -23,7 +23,7 @@
         };
     </script>
     
-    <!-- The Glia SDK script is NO LONGER loaded here. It will be loaded dynamically after login. -->
+    <!-- The Glia SDK script is loaded dynamically based on auth state -->
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,20 +43,15 @@
                 <svg class="w-8 h-8 text-glia-green" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 <h1 class="text-2xl font-bold">Glia CE Environment</h1>
             </div>
-            <div id="auth-controls">
-                <button id="login-button" onclick="handleLogin()" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg">
-                    Log In
-                </button>
-            </div>
+            <!-- Auth controls will be dynamically inserted here -->
+            <div id="auth-controls"></div>
         </div>
     </header>
 
     <main class="container mx-auto p-4 md:p-8 mt-10">
         <div id="status-container" class="text-center">
-            <h2 class="text-4xl font-bold mb-4">Welcome to the Testing Site</h2>
-            <p class="text-lg text-gray-300 max-w-2xl mx-auto mb-8">
-                Click "Log In" to fetch a Direct ID token and initialize the Glia SDK.
-            </p>
+            <h2 id="main-heading" class="text-4xl font-bold mb-4"></h2>
+            <p id="main-subheading" class="text-lg text-gray-300 max-w-2xl mx-auto mb-8"></p>
              <div id="message-box" class="bg-gray-800 p-6 rounded-lg max-w-2xl mx-auto my-6 hidden">
                 <h3 class="text-xl font-semibold mb-2 text-glia-green">Status</h3>
                 <pre class="text-left text-sm text-white bg-gray-900 p-4 rounded-md overflow-x-auto"><code id="message-content"></code></pre>
@@ -69,14 +64,16 @@
     </footer>
 
     <script>
-        // --- AUTHENTICATION LOGIC (Correct `getGliaContext` pattern) ---
+        // --- STATEFUL AUTHENTICATION LOGIC ---
 
         const TOKEN_GENERATOR_ENDPOINT = '/api/generate-glia-token'; 
-        const loginButton = document.getElementById('login-button');
+        const authControls = document.getElementById('auth-controls');
+        const mainHeading = document.getElementById('main-heading');
+        const mainSubheading = document.getElementById('main-subheading');
         const messageBox = document.getElementById('message-box');
         const messageContent = document.getElementById('message-content');
         
-        let idToken = null; // This will hold our JWT
+        let gliaApi = null;
 
         function showMessage(title, content) {
             messageBox.classList.remove('hidden');
@@ -84,21 +81,17 @@
             messageContent.textContent = content;
         }
         
-        // This function dynamically loads the main Glia script.
         function loadGliaScript(callback) {
-            // Check if the script is already on the page
             if (document.querySelector('script[src*="salemove_integration.js"]')) {
                 console.log('Glia script already loaded or loading.');
                 if (callback) callback();
                 return;
             }
-            
             console.log('Dynamically loading Glia script...');
             const script = document.createElement('script');
             script.async = 1;
             script.src = 'https://api.glia.com/salemove_integration.js';
             script.type = 'text/javascript';
-            // Add an event listener to run our callback after the script loads.
             if (callback) {
                 script.addEventListener('load', callback);
             }
@@ -106,38 +99,22 @@
         }
 
         async function handleLogin() {
+            const loginButton = document.getElementById('login-button');
             showMessage('Login Process Started', 'Fetching JWT from backend...');
             loginButton.disabled = true; 
             loginButton.textContent = 'Logging In...';
 
             try {
-                // 1. Fetch the JWT from our backend.
                 const response = await fetch(TOKEN_GENERATOR_ENDPOINT);
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Failed to get token from backend: ${response.status} ${errorText}`);
-                }
-                idToken = await response.text(); // Get the raw token string
+                if (!response.ok) throw new Error(`Backend error: ${response.status}`);
+                const idToken = await response.text();
+                if (!idToken) throw new Error('Backend returned an empty token.');
+
+                // Save the token to session storage
+                sessionStorage.setItem('glia_id_token', idToken);
                 
-                if (!idToken) { throw new Error('Backend returned an empty token.'); }
-
-                showMessage('JWT Received!', 'Token fetched successfully. Now defining getGliaContext...');
-                console.log("JWT:", idToken);
-
-                // 2. Define the global function that Glia will look for.
-                window.getGliaContext = () => ({ idToken });
-                console.log('window.getGliaContext has been defined.');
-
-                // 3. Now, dynamically load the Glia SDK script.
-                showMessage('Loading Glia SDK', 'The SDK will now load and use the getGliaContext function to authenticate.');
-                
-                loadGliaScript(function() {
-                    // This function runs after salemove_integration.js is loaded.
-                    console.log('Glia SDK script has loaded.');
-                    showMessage('Authentication Success!', 'The Glia SDK has loaded and should now be authenticated.');
-                    loginButton.textContent = 'Authenticated';
-                    // The button remains disabled as the session is now authenticated.
-                });
+                // Reload the page. The checkSession function will now handle the authenticated state.
+                window.location.reload();
 
             } catch (error) {
                 console.error('Login failed:', error);
@@ -146,6 +123,56 @@
                 loginButton.disabled = false;
             }
         }
+        
+        async function handleLogout() {
+            try {
+                if (gliaApi && typeof gliaApi.clearSession === 'function') {
+                    await gliaApi.clearSession();
+                    console.log('Glia session cleared.');
+                }
+            } catch (error) {
+                console.error('Error clearing Glia session:', error);
+            } finally {
+                // Clear the token and reload to return to the unauthenticated state.
+                sessionStorage.removeItem('glia_id_token');
+                window.location.reload();
+            }
+        }
+
+        // This function runs on every page load to check the auth state.
+        function checkSession() {
+            const idToken = sessionStorage.getItem('glia_id_token');
+
+            if (idToken) {
+                // AUTHENTICATED STATE
+                mainHeading.textContent = "Authenticated Session";
+                mainSubheading.textContent = "The Glia SDK is loaded and authenticated. Refreshing the page will maintain this state.";
+                authControls.innerHTML = `<button id="logout-button" class="btn bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Log Out</button>`;
+                document.getElementById('logout-button').addEventListener('click', handleLogout);
+                
+                // Define getGliaContext so the SDK can authenticate itself.
+                window.getGliaContext = () => ({ idToken });
+
+                // Load the SDK and get the API object to enable the logout function.
+                loadGliaScript(() => {
+                    sm.getApi({version: 'v1'}).then(api => {
+                        gliaApi = api;
+                        console.log('Authenticated Glia session restored.');
+                    });
+                });
+
+            } else {
+                // UNAUTHENTICATED STATE
+                mainHeading.textContent = "Welcome to the Testing Site";
+                mainSubheading.textContent = "Click 'Log In' to fetch a Direct ID token and initialize the Glia SDK.";
+                authControls.innerHTML = `<button id="login-button" class="btn bg-glia-purple text-white font-bold py-2 px-4 rounded-lg">Log In</button>`;
+                document.getElementById('login-button').addEventListener('click', handleLogin);
+            }
+        }
+        
+        // Start the session check on page load.
+        document.addEventListener('DOMContentLoaded', checkSession);
+
     </script>
 </body>
 </html>
