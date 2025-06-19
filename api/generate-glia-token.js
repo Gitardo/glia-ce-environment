@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'visitorId is required in the request body.' });
   }
 
-  // **THE FIX**: For Direct ID, the subject should be prefixed with 'visitor:'.
+  // For Direct ID, the subject should be prefixed with 'visitor:'.
   const subject = `visitor:${visitorId}`;
 
   const payload = {
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
     account_id: accountId,
 
-    // Structuring the `roles` array with the dynamic visitorId
+    // **THE FIX**: Adding the `engagement_site_ids` array to match the working example.
     roles: [
         {
             type: 'visitor',
@@ -50,7 +50,8 @@ export default async function handler(req, res) {
         },
         {
             type: 'site_visitor',
-            site_id: siteId
+            site_id: siteId,
+            engagement_site_ids: [siteId] // Usually the same as the site_id.
         }
     ]
   };
