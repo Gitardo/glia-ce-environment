@@ -26,7 +26,9 @@ export default async function handler(req, res) {
     // Subject (the user's unique ID in your system)
     sub: externalUserId, 
     
-    // **THE CHANGE**: Removing the `iss` (Issuer) claim for this test.
+    // **CHANGE 1**: Re-instating the `iss` claim and setting it to the API Key ID.
+    // This uniquely identifies the key that signed the token.
+    iss: apiKeyId,
     
     // Audience (must be 'gl' and your site ID)
     aud: ['gl', siteId],
@@ -40,9 +42,12 @@ export default async function handler(req, res) {
     // Expiration Time (e.g., 5 minutes from now)
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
 
-    // Standard user attributes
+    // Standard user attributes as top-level claims
     name: userName,
     email: userEmail,
+    
+    // **CHANGE 2**: Adding a simple `roles` claim, as this is present in other Glia tokens.
+    roles: ['visitor']
   };
 
   try {
