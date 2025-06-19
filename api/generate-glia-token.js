@@ -8,46 +8,44 @@ const { v4: uuidv4 } = require('uuid');
 const privateKey = process.env.GLIA_PRIVATE_KEY;
 const apiKeyId = process.env.GLIA_API_KEY_ID;
 const siteId = process.env.GLIA_SITE_ID;
+// **NEW**: You will need to add this to your Vercel Environment Variables.
+const accountId = process.env.GLIA_ACCOUNT_ID; 
 
 export default async function handler(req, res) {
   // Check for server configuration errors.
-  if (!privateKey || !apiKeyId || !siteId) {
+  if (!privateKey || !apiKeyId || !siteId || !accountId) {
     console.error('Missing required environment variables on Vercel.');
-    return res.status(500).json({ error: 'Server configuration error.' });
+    return res.status(500).json({ error: 'Server configuration error. Ensure GLIA_ACCOUNT_ID is set.' });
   }
 
   // --- MOCK USER DATA ---
   // For this test, we are hardcoding the user's details.
   const externalUserId = 'user-12345';
-  const userName = 'John Doe';
-  const userEmail = 'john.doe@example.com';
   
   const payload = {
-    // Subject (the user's unique ID in your system)
+    // Standard JWT claims
     sub: externalUserId, 
-    
-    // **CHANGE 1**: Re-instating the `iss` claim and setting it to the API Key ID.
-    // This uniquely identifies the key that signed the token.
-    iss: apiKeyId,
-    
-    // Audience (must be 'gl' and your site ID)
+    iss: 'DirectID Authentication', // Using a simple string as the issuer.
     aud: ['gl', siteId],
-    
-    // JWT ID (a unique ID for this specific token)
     jti: uuidv4(),
-    
-    // Issued At (current time in seconds)
     iat: Math.floor(Date.now() / 1000),
-    
-    // Expiration Time (e.g., 5 minutes from now)
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
 
-    // Standard user attributes as top-level claims
-    name: userName,
-    email: userEmail,
-    
-    // **CHANGE 2**: Adding a simple `roles` claim, as this is present in other Glia tokens.
-    roles: ['visitor']
+    // Account ID, as seen in the working example token.
+    account_id: accountId,
+
+    // **THE FIX**: Structuring the `roles` array as an array of objects.
+    // We are creating a simple "visitor" role for the authenticated user.
+    roles: [
+        {
+            type: 'visitor',
+            visitor_id: externalUserId 
+        },
+        {
+            type: 'site_visitor',
+            site_id: siteId
+        }
+    ]
   };
 
   try {
