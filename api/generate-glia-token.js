@@ -16,15 +16,15 @@ export default async function handler(req, res) {
   }
 
   // --- MOCK USER DATA ---
-  // A simple payload is sufficient for this authentication method.
-  const userEmail = 'jane.doe@email.com';
-  const userName = 'Jane Doe';
+  // A simple payload is sufficient for this authentication method,
+  // based on the provided examples.
+  const userEmail = 'jane.doe.authenticated@email.com';
+  const userName = 'Jane Doe (Authenticated)';
   
   const payload = {
-    // Basic claims based on your documentation examples
     email: userEmail,
     name: userName,
-    sub: userEmail, // Subject can also be the email or a unique ID
+    sub: userEmail, 
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + (5 * 60),
   };
@@ -38,8 +38,7 @@ export default async function handler(req, res) {
       },
     });
 
-    // Send the token back to the front-end.
-    // The DirectID example script expects the raw token, not a JSON object.
+    // Send the token back to the front-end as a raw string.
     res.status(200).send(signedToken);
 
   } catch (error) {
